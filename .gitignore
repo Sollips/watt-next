@@ -1,0 +1,34 @@
+# Provider/module cache
+.terraform/
+
+# State
+*.tfstate
+*.tfstate.*
+
+# Saved plans
+*.tfplan
+*.tfplan.json
+
+# Variable files
+*.tfvars
+*.tfvars.json
+
+# Local overrides & CLI config
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+
+# Crash logs
+crash.log
+crash.*.log
+
+# Lambda build artifacts
+__pycache__/
+*.zip
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
