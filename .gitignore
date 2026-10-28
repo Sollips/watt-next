@@ -11,6 +11,8 @@
 
 # Variable files
 *.tfvars
+# Exception: non-secret per-environment values ARE committed (CI needs them)
+!dev.tfvars
 *.tfvars.json
 
 # Local overrides & CLI config
