@@ -1,6 +1,9 @@
 resource "aws_s3_bucket" "datalake" {
   # bucket_prefix → Terraform appends a unique suffix: no global-name collision, no account ID in code
   bucket_prefix = "watt-next-datalake-"
+  tags = {
+    DataClassification = "public" # RTE open data; merged with default_tags
+  }
 }
 
 # Belt and braces: all four public-access blocks ON
