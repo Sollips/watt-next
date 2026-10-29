@@ -12,3 +12,8 @@ output "athena_results_bucket" {
   description = "Name of the Athena results bucket"
   value       = aws_s3_bucket.athena.bucket
 }
+
+output "ingest_role_arn" {
+  description = "ARN of the ingestion Lambda's execution role"
+  value       = aws_iam_role.ingest.arn
+}
