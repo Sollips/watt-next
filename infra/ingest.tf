@@ -74,8 +74,12 @@ resource "aws_lambda_function" "ingest" {
 
   logging_config {
     log_format = "Text"
-    log_group  = aws_cloudwatch_log_group.ingest.name # explicit link: log group exists first
+    log_group  = aws_cloudwatch_log_group.ingest.name # reference = implicit dependency: log group created first
   }
+
+  # Hidden dependency: the function only references the role, not its policy.
+  # Without this, the function could exist (and be invoked) before it has permissions.
+  depends_on = [aws_iam_role_policy.ingest]
 }
 
 # ── Scheduler: the alarm clock ─────────────────────────────────────────
