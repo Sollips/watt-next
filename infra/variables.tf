@@ -14,3 +14,9 @@ variable "environment" {
     error_message = "environment must be \"dev\" or \"prod\"."
   }
 }
+
+variable "ingest_schedule" {
+  description = "How often the ingestion Lambda runs (EventBridge Scheduler expression)"
+  type        = string
+  default     = "rate(15 minutes)" # ~2,900 API calls/month, under RTE's 50,000 quota
+}

@@ -27,7 +27,7 @@ def handler(event, context):               # Lambda calls this function on every
     if not records:
         raise ValueError("API returned no records")            # fail loudly, never store empty files
 
-    body = "\n".join(json.dumps(r, ensure_ascii=False) for r in records)  # JSON Lines for Athena
+    body = "\n".join(json.dumps(r, ensure_ascii=False) for r in records) + "\n"  # JSON Lines for Athena
 
     now = datetime.now(timezone.utc)       # partitions use UTC ingestion time
     key = (f"raw/eco2mix/year={now:%Y}/month={now:%m}/day={now:%d}/"
@@ -36,4 +36,4 @@ def handler(event, context):               # Lambda calls this function on every
                   ContentType="application/x-ndjson")
 
     print(json.dumps({"stored": key, "records": len(records)}))  # print → CloudWatch Logs
-    return {"stored": key, "records": len(records)}
+    return {"stored": key, "records": len(records)}  

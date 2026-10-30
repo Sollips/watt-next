@@ -77,3 +77,59 @@ resource "aws_lambda_function" "ingest" {
     log_group  = aws_cloudwatch_log_group.ingest.name # explicit link: log group exists first
   }
 }
+
+# ── Scheduler: the alarm clock ─────────────────────────────────────────
+# Trust: only EventBridge Scheduler may wear this role, and only for schedules in THIS account
+data "aws_iam_policy_document" "scheduler_assume" {
+  statement {
+    actions = ["sts:AssumeRole"]
+    principals {
+      type        = "Service"
+      identifiers = ["scheduler.amazonaws.com"]
+    }
+    condition { # confused-deputy protection: another account's schedule can't borrow this role
+      test     = "StringEquals"
+      variable = "aws:SourceAccount"
+      values   = [data.aws_caller_identity.current.account_id] # your data source, finally used!
+    }
+  }
+}
+
+resource "aws_iam_role" "scheduler" {
+  name               = "${local.ingest_function_name}-scheduler-role"
+  description        = "Lets EventBridge Scheduler invoke the ingestion Lambda"
+  assume_role_policy = data.aws_iam_policy_document.scheduler_assume.json
+}
+
+# Permissions: one door — invoke this one function
+data "aws_iam_policy_document" "scheduler_permissions" {
+  statement {
+    actions   = ["lambda:InvokeFunction"]
+    resources = [aws_lambda_function.ingest.arn]
+  }
+}
+
+resource "aws_iam_role_policy" "scheduler" {
+  name   = "invoke-ingest-only"
+  role   = aws_iam_role.scheduler.id
+  policy = data.aws_iam_policy_document.scheduler_permissions.json
+}
+
+resource "aws_scheduler_schedule" "ingest" {
+  name                = "${local.ingest_function_name}-schedule"
+  description         = "Runs eCO2mix ingestion on a fixed rate"
+  schedule_expression = var.ingest_schedule
+
+  flexible_time_window {
+    mode = "OFF" # run on time; "FLEXIBLE" lets AWS spread runs within a window
+  }
+
+  target {
+    arn      = aws_lambda_function.ingest.arn
+    role_arn = aws_iam_role.scheduler.arn
+
+    retry_policy {
+      maximum_retry_attempts = 2 # transient API hiccups; failed events go to a DLQ in Nugget 20
+    }
+  }
+}
