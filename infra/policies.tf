@@ -1,59 +1,36 @@
-# Deny ANY request to the datalake bucket that isn't over HTTPS
-data "aws_iam_policy_document" "datalake_tls_only" {
-  statement {
-    sid     = "DenyInsecureTransport"
-    effect  = "Deny"
-    actions = ["s3:*"]
+# Buckets that must refuse non-HTTPS requests. Keys are names WE choose (known at plan time).
+locals {
+  tls_only_buckets = {
+    datalake = aws_s3_bucket.datalake
+    athena   = aws_s3_bucket.athena
+  }
+}
 
-    resources = [
-      aws_s3_bucket.datalake.arn,        # the bucket itself (ListBucket, etc.)
-      "${aws_s3_bucket.datalake.arn}/*", # every object in it (GetObject, PutObject…)
-    ]
+data "aws_iam_policy_document" "tls_only" {
+  for_each = local.tls_only_buckets # one policy document per bucket
+
+  statement {
+    sid       = "DenyInsecureTransport"
+    effect    = "Deny"
+    actions   = ["s3:*"]
+    resources = [each.value.arn, "${each.value.arn}/*"] # each.value = that bucket
 
     principals {
       type        = "*"
-      identifiers = ["*"] # everyone, admins included
+      identifiers = ["*"]
     }
 
     condition {
       test     = "Bool"
       variable = "aws:SecureTransport"
-      values   = ["false"] # i.e. the request did NOT use TLS
+      values   = ["false"]
     }
   }
 }
 
-resource "aws_s3_bucket_policy" "datalake" {
-  bucket = aws_s3_bucket.datalake.id
-  policy = data.aws_iam_policy_document.datalake_tls_only.json
-}
+resource "aws_s3_bucket_policy" "tls_only" {
+  for_each = local.tls_only_buckets
 
-# Deny ANY request to the athena bucket that isn't over HTTPS
-data "aws_iam_policy_document" "athena_tls_only" {
-  statement {
-    sid     = "DenyInsecureTransport"
-    effect  = "Deny"
-    actions = ["s3:*"]
-
-    resources = [
-      aws_s3_bucket.athena.arn,        # the bucket itself (ListBucket, etc.)
-      "${aws_s3_bucket.athena.arn}/*", # every object in it (GetObject, PutObject…)
-    ]
-
-    principals {
-      type        = "*"
-      identifiers = ["*"] # everyone, admins included
-    }
-
-    condition {
-      test     = "Bool"
-      variable = "aws:SecureTransport"
-      values   = ["false"] # i.e. the request did NOT use TLS
-    }
-  }
-}
-
-resource "aws_s3_bucket_policy" "athena" {
-  bucket = aws_s3_bucket.athena.id
-  policy = data.aws_iam_policy_document.athena_tls_only.json
+  bucket = each.value.id
+  policy = data.aws_iam_policy_document.tls_only[each.key].json # the matching document, by key
 }
