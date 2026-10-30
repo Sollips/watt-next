@@ -17,3 +17,8 @@ output "ingest_role_arn" {
   description = "ARN of the ingestion Lambda's execution role"
   value       = aws_iam_role.ingest.arn
 }
+
+output "ingest_function_name" {
+  description = "Name of the ingest function"
+  value       = aws_lambda_function.ingest.function_name
+}
