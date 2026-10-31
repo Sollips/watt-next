@@ -20,3 +20,14 @@ variable "ingest_schedule" {
   type        = string
   default     = "rate(15 minutes)" # ~2,900 API calls/month, under RTE's 50,000 quota
 }
+
+variable "alert_email" {
+  description = "Email address that receives ingestion alerts"
+  type        = string
+  sensitive   = true
+
+  validation {
+    condition     = strcontains(var.alert_email, "@")
+    error_message = "The email address must contain an '@' symbol."
+  }
+}

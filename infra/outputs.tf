@@ -8,7 +8,7 @@ output "datalake_bucket_arn" {
   value       = aws_s3_bucket.datalake.arn
 }
 
-output "athena_results_bucket" {
+output "athena_results_bucket_name" {
   description = "Name of the Athena results bucket"
   value       = aws_s3_bucket.athena.bucket
 }
@@ -21,4 +21,9 @@ output "ingest_role_arn" {
 output "ingest_function_name" {
   description = "Name of the ingest function"
   value       = aws_lambda_function.ingest.function_name
+}
+
+output "alerts_topic_arn" {
+  description = "ARN of the Alerts SNS topic"
+  value       = aws_sns_topic.alerts.arn
 }
