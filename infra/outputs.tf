@@ -27,3 +27,13 @@ output "alerts_topic_arn" {
   description = "ARN of the Alerts SNS topic"
   value       = aws_sns_topic.alerts.arn
 }
+
+output "athena_workgroup_name" {
+  description = "Workgroup to select in the Athena console (enforces results location and a 100 MB scan limit)"
+  value       = aws_athena_workgroup.watt.name
+}
+
+output "glue_database_name" {
+  description = "Database to select in the Athena query editor; contains the eco2mix table"
+  value       = aws_glue_catalog_database.watt.name
+}
