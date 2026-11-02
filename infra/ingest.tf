@@ -117,6 +117,12 @@ data "aws_iam_policy_document" "scheduler_permissions" {
     actions   = ["lambda:InvokeFunction"]
     resources = [aws_lambda_function.ingest.arn]
   }
+
+  statement {
+    sid       = "SendUndeliveredToDlq"
+    actions   = ["sqs:SendMessage"]
+    resources = [aws_sqs_queue.ingest_dlq.arn] # the queue's ARN
+  }
 }
 
 resource "aws_iam_role_policy" "scheduler" {
@@ -139,7 +145,10 @@ resource "aws_scheduler_schedule" "ingest" {
     role_arn = aws_iam_role.scheduler.arn
 
     retry_policy {
-      maximum_retry_attempts = 2 # transient API hiccups; failed events go to a DLQ in Nugget 20
+      maximum_retry_attempts = 2 # transient API hiccups; failed events go to a DLQ
+    }
+    dead_letter_config {
+      arn = aws_sqs_queue.ingest_dlq.arn # the queue's ARN
     }
   }
 }
