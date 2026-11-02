@@ -37,3 +37,8 @@ output "glue_database_name" {
   description = "Database to select in the Athena query editor; contains the eco2mix table"
   value       = aws_glue_catalog_database.watt.name
 }
+
+output "site_url" {
+  description = "Public HTTPS address of the watt-next page (share this one)"
+  value       = "https://${aws_cloudfront_distribution.site.domain_name}"
+}
