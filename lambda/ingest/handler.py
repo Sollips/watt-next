@@ -17,8 +17,9 @@ PARAMS = {
     "limit": "96",                         # 96 x 15 min = the last 24 hours
 }
 
-
-def handler(event, context):               # Lambda calls this function on every run
+def handler(event, context):      # Lambda calls this function on every run
+    if isinstance(event, dict) and event.get("simulate_failure"):  # test hook: dev only
+        raise RuntimeError("Simulated failure to test the DLQ")             
     url = f"{API_URL}?{urllib.parse.urlencode(PARAMS)}"
     with urllib.request.urlopen(url, timeout=20) as response:  # HTTP error → exception → run fails
         payload = json.loads(response.read())                  # not JSON → exception → run fails

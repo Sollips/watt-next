@@ -39,6 +39,12 @@ data "aws_iam_policy_document" "ingest_permissions" {
     actions   = ["s3:PutObject"]
     resources = ["${aws_s3_bucket.datalake.arn}/raw/eco2mix/*"] # write-only, one prefix
   }
+
+  statement {
+    sid       = "SendFailuresToDlq"
+    actions   = ["sqs:SendMessage"]
+    resources = [aws_sqs_queue.ingest_dlq.arn] # only this one queue
+  }
 }
 
 resource "aws_iam_role_policy" "ingest" {
@@ -134,6 +140,26 @@ resource "aws_scheduler_schedule" "ingest" {
 
     retry_policy {
       maximum_retry_attempts = 2 # transient API hiccups; failed events go to a DLQ in Nugget 20
+    }
+  }
+}
+
+# ── Failure parking lot ──────────────────────────────────────────
+resource "aws_sqs_queue" "ingest_dlq" {
+  name                      = "${local.name_prefix}-ingest-dlq"
+  message_retention_seconds = 1209600 # 14 days (the max): time to investigate
+  sqs_managed_sse_enabled   = true    # encrypted at rest, free
+}
+
+# Async failures: retry twice, then park the failed event in the DLQ
+resource "aws_lambda_function_event_invoke_config" "ingest" {
+  function_name                = aws_lambda_function.ingest.function_name # the function's NAME
+  maximum_retry_attempts       = 2
+  maximum_event_age_in_seconds = 3600
+
+  destination_config {
+    on_failure {
+      destination = aws_sqs_queue.ingest_dlq.arn # the queue's ARN
     }
   }
 }
