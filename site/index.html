@@ -1,8 +1,60 @@
 <!doctype html>
 <html lang="en">
-<head><meta charset="utf-8"><title>watt-next</title></head>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>watt-next — French grid carbon intensity</title>
+<style>
+  :root { --bg:#f6f8f5; --fg:#1d2b22; --muted:#5c6b61; --accent:#2e8b57; --card:#ffffff; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#121815; --fg:#e8efe9; --muted:#9db0a3; --accent:#5fd08f; --card:#1b231e; }
+  }
+  body  { margin:0; font-family:system-ui, sans-serif; background:var(--bg); color:var(--fg); }
+  main  { max-width:720px; margin:0 auto; padding:32px 16px; }
+  .card { background:var(--card); border-radius:12px; padding:24px; box-shadow:0 1px 3px rgba(0,0,0,.08); }
+  .big  { font-size:64px; font-weight:700; color:var(--accent); line-height:1; }
+  .unit, .muted { color:var(--muted); }
+  .muted { font-size:14px; }
+  svg   { width:100%; height:180px; margin-top:16px; }
+  footer { margin-top:24px; font-size:13px; color:var(--muted); }
+</style>
+</head>
 <body>
+<main>
   <h1>watt-next</h1>
-  <p>Carbon intensity of the French grid, coming soon.</p>
+  <p class="muted">Carbon intensity of the French electricity grid, updated every 15 minutes.</p>
+  <section class="card">
+    <div><span id="now" class="big">…</span> <span class="unit">g CO₂/kWh</span></div>
+    <p id="when" class="muted">Loading…</p>
+    <svg id="chart" viewBox="0 0 600 180" preserveAspectRatio="none" role="img" aria-label="Carbon intensity, last 24 hours"></svg>
+    <p id="range" class="muted"></p>
+  </section>
+  <footer>Source: RTE – éCO2mix (open data, via ODRÉ). Built with Terraform on AWS.</footer>
+</main>
+<script>
+// 1. Fetch the file the ingestion Lambda writes every 15 minutes (served by CloudFront)
+fetch("/data/latest.json")
+  .then(response => response.json())
+  .then(({ points }) => {
+    const values = points.map(p => p.co2);
+    const last = points[points.length - 1];
+
+    // 2. Current value + when it was measured, in Paris time
+    const fmt = new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Paris",
+      day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+    document.getElementById("now").textContent = last.co2;
+    document.getElementById("when").textContent = "Measured " + fmt.format(new Date(last.t)) + " (Paris time)";
+
+    // 3. Draw the 24 h line: left = 24 h ago, right = now; higher = more CO₂
+    const min = Math.min(...values), max = Math.max(...values);
+    const x = i => (i / (values.length - 1)) * 600;
+    const y = v => 170 - ((v - min) / ((max - min) || 1)) * 160;
+    const d = values.map((v, i) => (i ? "L" : "M") + x(i).toFixed(1) + " " + y(v).toFixed(1)).join(" ");
+    document.getElementById("chart").innerHTML =
+      `<path d="${d}" fill="none" style="stroke:var(--accent)" stroke-width="2" vector-effect="non-scaling-stroke"/>`;
+    document.getElementById("range").textContent = `Last 24 h: min ${min}, max ${max} g CO₂/kWh`;
+  })
+  .catch(() => { document.getElementById("when").textContent = "Data temporarily unavailable."; });
+</script>
 </body>
 </html>

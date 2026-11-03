@@ -9,6 +9,7 @@ import boto3  # AWS SDK, pre-installed in the Lambda runtime
 
 S3 = boto3.client("s3")                    # created once per container, reused across runs
 BUCKET = os.environ["DATALAKE_BUCKET"]     # injected by Terraform (environment variable)
+SITE_BUCKET = os.environ["SITE_BUCKET"]
 API_URL = ("https://odre.opendatasoft.com/api/explore/v2.1/"
            "catalog/datasets/eco2mix-national-tr/records")
 PARAMS = {
@@ -35,6 +36,12 @@ def handler(event, context):      # Lambda calls this function on every run
            f"eco2mix_{now:%Y%m%dT%H%M%SZ}.jsonl")
     S3.put_object(Bucket=BUCKET, Key=key, Body=body.encode("utf-8"),
                   ContentType="application/x-ndjson")
-
+    # Public page data: the last 24 h, oldest → newest, only the 2 fields the page needs
+    points = [{"t": r["date_heure"], "co2": r["taux_co2"]}
+              for r in sorted(records, key=lambda r: r["date_heure"])]
+    S3.put_object(Bucket=SITE_BUCKET, Key="data/latest.json",
+                  Body=json.dumps({"updated": now.isoformat(), "points": points}).encode("utf-8"),
+                  ContentType="application/json",
+                  CacheControl="max-age=300")      # CloudFront refetches at most every 5 min
     print(json.dumps({"stored": key, "records": len(records)}))  # print → CloudWatch Logs
     return {"stored": key, "records": len(records)}  

@@ -42,3 +42,8 @@ output "site_url" {
   description = "Public HTTPS address of the watt-next page (share this one)"
   value       = "https://${aws_cloudfront_distribution.site.domain_name}"
 }
+
+output "site_distribution_id" {
+  description = "CloudFront distribution ID, needed for cache invalidations"
+  value       = aws_cloudfront_distribution.site.id
+}

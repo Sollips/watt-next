@@ -117,9 +117,10 @@ resource "aws_s3_bucket_policy" "site" {
 
 # The page itself, uploaded from Git
 resource "aws_s3_object" "index" {
-  bucket       = aws_s3_bucket.site.id
-  key          = "index.html"
-  source       = "${path.module}/../site/index.html"
-  source_hash  = filemd5("${path.module}/../site/index.html") # file changes → re-upload
-  content_type = "text/html; charset=utf-8"
+  bucket        = aws_s3_bucket.site.id
+  key           = "index.html"
+  source        = "${path.module}/../site/index.html"
+  source_hash   = filemd5("${path.module}/../site/index.html") # file changes → re-upload
+  content_type  = "text/html; charset=utf-8"
+  cache_control = "max-age=300" # future page edits reach visitors within 5 minutes
 }

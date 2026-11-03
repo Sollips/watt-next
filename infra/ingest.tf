@@ -45,6 +45,12 @@ data "aws_iam_policy_document" "ingest_permissions" {
     actions   = ["sqs:SendMessage"]
     resources = [aws_sqs_queue.ingest_dlq.arn] # only this one queue
   }
+
+  statement {
+    sid       = "WriteSiteData"
+    actions   = ["s3:PutObject"]
+    resources = ["${aws_s3_bucket.site.arn}/data/latest.json"] # the site bucket's ARN: exactly ONE object, nothing else
+  }
 }
 
 resource "aws_iam_role_policy" "ingest" {
@@ -75,6 +81,7 @@ resource "aws_lambda_function" "ingest" {
   environment {
     variables = {
       DATALAKE_BUCKET = aws_s3_bucket.datalake.bucket
+      SITE_BUCKET     = aws_s3_bucket.site.bucket # the site bucket's full NAME # the site bucket's full NAME
     }
   }
 
