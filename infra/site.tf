@@ -3,27 +3,35 @@ locals {
   site_origin_id = "site-bucket" # a name WE choose, used to link origin and cache behavior
 }
 
-resource "aws_s3_bucket" "site" {
-  bucket_prefix = "watt-next-site-"
-  force_destroy = true # content is regenerated from Git; safe to wipe
+# Site: rebuilt from Git, so force_destroy is safe; CloudFront access is added to the module's policy
+module "site" {
+  source                      = "../modules/secure_bucket"
+  bucket_prefix               = "watt-next-site-"
+  force_destroy               = true
+  additional_policy_documents = [data.aws_iam_policy_document.site_cloudfront.json]
 }
 
-resource "aws_s3_bucket_public_access_block" "site" {
-  bucket                  = aws_s3_bucket.site.id
-  block_public_acls       = true
-  block_public_policy     = true
-  ignore_public_acls      = true
-  restrict_public_buckets = true
-}
+data "aws_iam_policy_document" "site_cloudfront" {
+  statement {
+    sid       = "AllowCloudFrontRead"
+    actions   = ["s3:GetObject"]
+    resources = ["${module.site.arn}/*"]
 
-resource "aws_s3_bucket_server_side_encryption_configuration" "site" {
-  bucket = aws_s3_bucket.site.id
-  rule {
-    apply_server_side_encryption_by_default {
-      sse_algorithm = "AES256"
+    principals {
+      type        = "Service"
+      identifiers = ["cloudfront.amazonaws.com"]
     }
+
+    condition { # only THIS distribution (confused-deputy protection)
+      test     = "StringEquals"
+      variable = "AWS:SourceArn"
+      values   = [aws_cloudfront_distribution.site.arn] # the distribution's ARN
+    }
+
   }
 }
+
+
 
 # OAC: CloudFront signs its requests to S3 (replaces the legacy OAI)
 resource "aws_cloudfront_origin_access_control" "site" {
@@ -48,7 +56,7 @@ resource "aws_cloudfront_distribution" "site" {
 
   origin {
     origin_id                = local.site_origin_id
-    domain_name              = aws_s3_bucket.site.bucket_regional_domain_name # the bucket's REGIONAL domain name (computed attribute)
+    domain_name              = module.site.regional_domain_name
     origin_access_control_id = aws_cloudfront_origin_access_control.site.id
   }
 
@@ -72,52 +80,9 @@ resource "aws_cloudfront_distribution" "site" {
   }
 }
 
-# The warehouse door: ONE policy, TWO statements
-data "aws_iam_policy_document" "site" {
-  statement {
-    sid       = "AllowCloudFrontRead"
-    actions   = ["s3:GetObject"]
-    resources = ["${aws_s3_bucket.site.arn}/*"]
-
-    principals {
-      type        = "Service"
-      identifiers = ["cloudfront.amazonaws.com"]
-    }
-
-    condition { # only THIS distribution (confused-deputy protection)
-      test     = "StringEquals"
-      variable = "AWS:SourceArn"
-      values   = [aws_cloudfront_distribution.site.arn] # the distribution's ARN
-    }
-  }
-
-  statement {
-    sid       = "DenyInsecureTransport"
-    effect    = "Deny"
-    actions   = ["s3:*"]
-    resources = [aws_s3_bucket.site.arn, "${aws_s3_bucket.site.arn}/*"]
-
-    principals {
-      type        = "*"
-      identifiers = ["*"]
-    }
-
-    condition {
-      test     = "Bool"
-      variable = "aws:SecureTransport"
-      values   = ["false"]
-    }
-  }
-}
-
-resource "aws_s3_bucket_policy" "site" {
-  bucket = aws_s3_bucket.site.id
-  policy = data.aws_iam_policy_document.site.json # the policy document's JSON
-}
-
 # The page itself, uploaded from Git
 resource "aws_s3_object" "index" {
-  bucket        = aws_s3_bucket.site.id
+  bucket        = module.site.name
   key           = "index.html"
   source        = "${path.module}/../site/index.html"
   source_hash   = filemd5("${path.module}/../site/index.html") # file changes → re-upload

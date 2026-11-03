@@ -2,7 +2,7 @@
 locals {
   # Glue/Athena names: underscores, not hyphens (watt-next-dev → watt_next_dev)
   glue_database_name = replace(local.name_prefix, "-", "_")
-  eco2mix_location   = "s3://${aws_s3_bucket.datalake.bucket}/raw/eco2mix/"
+  eco2mix_location   = "s3://${module.datalake.name}/raw/eco2mix/"
 }
 
 resource "aws_glue_catalog_database" "watt" {

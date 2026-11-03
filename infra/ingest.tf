@@ -37,7 +37,7 @@ data "aws_iam_policy_document" "ingest_permissions" {
   statement {
     sid       = "WriteRawEco2mix"
     actions   = ["s3:PutObject"]
-    resources = ["${aws_s3_bucket.datalake.arn}/raw/eco2mix/*"] # write-only, one prefix
+    resources = ["${module.datalake.arn}/raw/eco2mix/*"] # write-only, one prefix
   }
 
   statement {
@@ -49,7 +49,7 @@ data "aws_iam_policy_document" "ingest_permissions" {
   statement {
     sid       = "WriteSiteData"
     actions   = ["s3:PutObject"]
-    resources = ["${aws_s3_bucket.site.arn}/data/latest.json"] # the site bucket's ARN: exactly ONE object, nothing else
+    resources = ["${module.site.arn}/data/latest.json"] # the site bucket's ARN: exactly ONE object, nothing else
   }
 }
 
@@ -80,8 +80,8 @@ resource "aws_lambda_function" "ingest" {
 
   environment {
     variables = {
-      DATALAKE_BUCKET = aws_s3_bucket.datalake.bucket
-      SITE_BUCKET     = aws_s3_bucket.site.bucket # the site bucket's full NAME # the site bucket's full NAME
+      DATALAKE_BUCKET = module.datalake.name
+      SITE_BUCKET     = module.site.name # the site bucket's full NAME # the site bucket's full NAME
     }
   }
 
