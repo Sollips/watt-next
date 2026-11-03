@@ -2,7 +2,6 @@
 locals {
   tls_only_buckets = {
     datalake = aws_s3_bucket.datalake
-    athena   = aws_s3_bucket.athena
   }
 }
 

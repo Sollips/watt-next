@@ -10,7 +10,7 @@ output "datalake_bucket_arn" {
 
 output "athena_results_bucket_name" {
   description = "Name of the Athena results bucket"
-  value       = aws_s3_bucket.athena.bucket
+  value       = module.athena_results.name
 }
 
 output "ingest_role_arn" {

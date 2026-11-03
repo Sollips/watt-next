@@ -106,7 +106,7 @@ resource "aws_athena_workgroup" "watt" {
     bytes_scanned_cutoff_per_query     = 104857600 # 100 MB: cancel runaway queries
 
     result_configuration {
-      output_location = "s3://${aws_s3_bucket.athena.bucket}/results/" # the Athena results bucket's NAME (inside ${ })
+      output_location = "s3://${module.athena_results.name}/results/" # the Athena results bucket's NAME (inside ${ })
 
       encryption_configuration {
         encryption_option = "SSE_S3"
