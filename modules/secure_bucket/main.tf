@@ -3,6 +3,9 @@ resource "aws_s3_bucket" "this" {
   bucket_prefix = var.bucket_prefix
   force_destroy = var.force_destroy
   tags          = var.tags
+  lifecycle {
+    prevent_destroy = true # Terraform refuses any plan that would destroy a bucket made by this module
+  }
 }
 
 resource "aws_s3_bucket_public_access_block" "this" {
