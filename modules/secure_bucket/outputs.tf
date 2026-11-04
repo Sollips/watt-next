@@ -12,3 +12,8 @@ output "regional_domain_name" {
   description = "Regional domain name: for network connections (CloudFront origin)"
   value       = aws_s3_bucket.this.bucket_regional_domain_name
 }
+
+output "versioning_enabled" {
+  description = "Whether versioning is on (lets callers check their assumptions)"
+  value       = var.versioning_enabled
+}
