@@ -1,32 +1,6 @@
-resource "aws_s3_bucket" "tfstate" {
-  bucket_prefix = "watt-next-tfstate-"
-
-  lifecycle {
-    prevent_destroy = true # Terraform refuses any plan that would destroy this bucket
-  }
-}
-
-# Every state write is kept → a corrupted state can be rolled back
-resource "aws_s3_bucket_versioning" "tfstate" {
-  bucket = aws_s3_bucket.tfstate.id
-  versioning_configuration {
-    status = "Enabled"
-  }
-}
-
-resource "aws_s3_bucket_server_side_encryption_configuration" "tfstate" {
-  bucket = aws_s3_bucket.tfstate.id
-  rule {
-    apply_server_side_encryption_by_default {
-      sse_algorithm = "AES256" # KMS CMK = production upgrade (second lock + audit)
-    }
-  }
-}
-
-resource "aws_s3_bucket_public_access_block" "tfstate" {
-  bucket                  = aws_s3_bucket.tfstate.id
-  block_public_acls       = true
-  block_public_policy     = true
-  ignore_public_acls      = true
-  restrict_public_buckets = true
+module "tfstate" {
+  source             = "../modules/secure_bucket" # same relative path as from infra/
+  bucket_prefix      = "watt-next-tfstate-"
+  versioning_enabled = true
+  force_destroy      = false # explicit: Terraform's memory must never be force-deleted
 }
