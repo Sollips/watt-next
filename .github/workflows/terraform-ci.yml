@@ -18,6 +18,32 @@ jobs:
           terraform_version: "1.16.0"           # same version as your laptop
       - run: terraform fmt -check -recursive    # fails if any .tf file isn't formatted
 
+  plan:
+    name: Plan (infra)
+    needs: [fmt, validate]                    # don't log into AWS if the code is broken
+    if: github.event_name == 'pull_request'   # only PRs match the ci-plan trust policy
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write                         # lets the job ask GitHub for an OIDC token
+    defaults:
+      run:
+        working-directory: infra
+    env:
+      TF_VAR_alert_email: ${{ secrets.ALERT_EMAIL }}   # replaces the gitignored local.auto.tfvars
+      TF_IN_AUTOMATION: "true"
+    steps:
+      - uses: actions/checkout@v6
+      - uses: aws-actions/configure-aws-credentials@v5   # verify the latest major on the Marketplace
+        with:
+          role-to-assume: ${{ vars.AWS_PLAN_ROLE_ARN }}
+          aws-region: eu-west-3
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.16.0
+      - run: terraform init -input=false
+      - run: terraform plan -input=false -lock-timeout=60s -var-file=dev.tfvars -no-color 
+    
   validate:
     name: Validate (${{ matrix.dir }})
     runs-on: ubuntu-latest
