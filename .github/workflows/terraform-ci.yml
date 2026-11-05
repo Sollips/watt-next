@@ -1,0 +1,36 @@
+name: terraform-ci
+
+on:
+  pull_request:          # every PR, whichever branch it targets
+  workflow_dispatch:     # a "Run workflow" button for manual runs
+
+permissions:
+  contents: read         # least privilege: the job can only READ the repo
+
+jobs:
+  fmt:
+    name: Format check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6               # verify the current major on its GitHub page
+      - uses: hashicorp/setup-terraform@v3      # verify the current major on its GitHub page
+        with:
+          terraform_version: "1.16.0"           # same version as your laptop
+      - run: terraform fmt -check -recursive    # fails if any .tf file isn't formatted
+
+  validate:
+    name: Validate (${{ matrix.dir }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        dir: [infra, bootstrap]                 # one job per config, in parallel
+    defaults:
+      run:
+        working-directory: ${{ matrix.dir }}    # every command runs inside that folder
+    steps:
+      - uses: actions/checkout@v6
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.16.0"
+      - run: terraform init -backend=false -input=false   # providers + modules, no state
+      - run: terraform validate
