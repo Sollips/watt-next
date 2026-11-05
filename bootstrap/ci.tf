@@ -1,9 +1,9 @@
 # ── CI access: GitHub Actions → AWS via OIDC (no stored keys) ──────────────
 locals {
-  github_repo = "Sollips/watt-next"
-  oidc_host   = "token.actions.githubusercontent.com"
+  # GitHub's immutable sub format (repos created after 15 Jul 2026): owner@ID/repo@ID
+  github_repo_sub = "Sollips@30500226/watt-next@1435592658"
+  oidc_host       = "token.actions.githubusercontent.com"
 }
-
 # AWS trusts tokens signed by GitHub Actions
 resource "aws_iam_openid_connect_provider" "github" {
   url            = "https://${local.oidc_host}"
@@ -27,7 +27,7 @@ data "aws_iam_policy_document" "ci_plan_trust" {
     condition { # THE important line: only pull-request runs of THIS repo
       test     = "StringEquals"
       variable = "${local.oidc_host}:sub"
-      values   = ["repo:${local.github_repo}:pull_request"]
+      values   = ["repo:${local.github_repo_sub}:pull_request"]
     }
   }
 }
@@ -76,7 +76,7 @@ data "aws_iam_policy_document" "ci_apply_trust" {
     condition { # THE important line: only runs in THIS repo's "production" environment
       test     = "StringEquals"
       variable = "${local.oidc_host}:sub"
-      values   = ["repo:${local.github_repo}:environment:production"]
+      values   = ["repo:${local.github_repo_sub}:environment:production"]
     }
   }
 }
