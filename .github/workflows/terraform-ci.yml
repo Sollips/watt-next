@@ -60,3 +60,34 @@ jobs:
           terraform_version: "1.16.0"
       - run: terraform init -backend=false -input=false   # providers + modules, no state
       - run: terraform validate
+  
+  apply:
+    name: Apply (infra)
+    needs: [fmt, validate]
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production                   # the approval gate (works once the repo is public)
+    concurrency:
+      group: terraform-apply                  # never two applies at once
+      cancel-in-progress: false               # never kill an apply halfway
+    permissions:
+      contents: read
+      id-token: write
+    defaults:
+      run:
+        working-directory: infra
+    env:
+      TF_VAR_alert_email: ${{ secrets.ALERT_EMAIL }}
+      TF_IN_AUTOMATION: "true"
+    steps:
+      - uses: actions/checkout@v6
+      - uses: aws-actions/configure-aws-credentials@v5
+        with:
+          role-to-assume: ${{ vars.AWS_APPLY_ROLE_ARN }}
+          aws-region: eu-west-3
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.16.0
+      - run: terraform init -input=false
+      - run: terraform plan -input=false -lock-timeout=60s -var-file=dev.tfvars -no-color -out=tfplan
+      - run: terraform apply -input=false -lock-timeout=60s -no-color tfplan   # applies exactly what was just planned
