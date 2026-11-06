@@ -117,12 +117,41 @@ site/                      # the public page
 
 ## Deploy it yourself
 
-<!-- Part D -->
+**Prerequisites:** an AWS account with an SSO profile, Terraform ~> 1.16, the AWS CLI v2, and a GitHub fork of this repo.
+
+```bash
+# 1. Bootstrap (once, by a human): state bucket + GitHub OIDC roles, local state
+#    First edit bootstrap/ci.tf → local.github_repo_sub = "<Owner>@<owner_id>/<repo>@<repo_id>"
+#    (IDs: gh api repos/<owner>/<repo> --jq '"\(.owner.id) \(.id)"')
+cd bootstrap
+terraform init && terraform plan -out=bootstrap.tfplan && terraform apply bootstrap.tfplan
+terraform output   # state bucket name + the two CI role ARNs
+
+# 2. The platform
+cd ../infra
+#    Edit backend.tf → bucket = "<the state bucket name from step 1>" (backends can't use variables)
+echo 'alert_email = "you@example.com"' > local.auto.tfvars   # git-ignored
+terraform init
+terraform plan -var-file=dev.tfvars -input=false -out=infra.tfplan
+terraform apply infra.tfplan
+#    Then confirm the SNS subscription email AWS sends you.
+```
+
+**3. CI:** add the GitHub variables `AWS_PLAN_ROLE_ARN` and `AWS_APPLY_ROLE_ARN`, the secret `ALERT_EMAIL`, and a `production` environment with a required reviewer.
+
+> ⚠️ The data lake and state buckets have `prevent_destroy`. Tearing down is a deliberate, two-step act.
 
 ## Roadmap
 
-<!-- Part D -->
+- **v0.3 (now):** live ingestion every 15 min · partitioned data lake + Athena · public page · remote state · CI with OIDC, tflint, checkov, plan on PR, gated apply
+- **Hardening:** scope the CI apply role to watt-next resources · KMS customer-managed key for the state · custom domain + ACM certificate (TLS 1.2 minimum) · Lambda concurrency limit · pre-commit hooks · `terraform test` · automated tool updates (Renovate)
+- **v0.5: weather forecasts.** Ingest NOAA GFS from AWS Open Data in us-east-1 (SNS → SQS → Lambda), extract only France, ship the subset to Paris. *Compute moves to the data.*
+- **v0.6: prices.** Add ENTSO-E day-ahead prices: the **cleanest and the cheapest** hours.
+- **v0.7: forecast.** Correlate wind and solar forecasts with actual production, and publish a **24-hour carbon forecast** on the page.
+- **v0.8: grid brief.** A nightly plain-language summary on the page, orchestrated by Step Functions: Athena computes every figure, Amazon Bedrock only writes the sentences (no model-generated numbers).
+- **v0.9: carbon-aware CI.** A "best window" API and a GitHub Action that delays non-urgent workflows to the cleanest hour.
+- **v1.0: multi-account platform.** Migrate into a landing zone (AWS Organizations, IAM Identity Center, SCPs, central CloudTrail and GuardDuty, separate dev and prod accounts) using `moved` and `import` blocks, then schedule the platform's own jobs in the cleanest hours.
 
 ## Data source & licence
 
-<!-- Part D -->
+Grid data: **éCO2mix national real-time data**, © [RTE](https://www.rte-france.com), distributed by [Open Data Réseaux Énergies (ODRÉ)](https://odre.opendatasoft.com), under the [Licence Ouverte / Open Licence v2.0](https://www.etalab.gouv.fr/licence-ouverte-open-licence/). watt-next is an independent project, not affiliated with RTE.
