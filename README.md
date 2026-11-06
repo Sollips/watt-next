@@ -16,7 +16,41 @@ stores it in a queryable data lake, and finds the **lowest-carbon hours**, so th
 
 ## Architecture
 
-<!-- Part B: diagram -->
+```mermaid
+flowchart LR
+  subgraph EXT["Outside AWS"]
+    RTE["RTE eCO2mix<br/>(ODRÉ open-data API)"]
+    USER["Visitor's browser"]
+  end
+
+  subgraph AWS["AWS · eu-west-3 (Paris) · 100% Terraform"]
+    SCHED["EventBridge Scheduler<br/>every 15 min"]
+    LAMBDA["Lambda: ingest<br/>Python 3.13 · arm64"]
+    LAKE[("S3 data lake<br/>raw/eco2mix/year=/month=/day=")]
+    SITE[("S3 site bucket<br/>index.html · latest.json")]
+    CF["CloudFront<br/>OAC · security headers"]
+    GLUE["Glue table<br/>partition projection"]
+    ATHENA["Athena workgroup<br/>100 MB scan cap"]
+
+    DLQ[("SQS dead-letter queue<br/>failed events, kept 14 days")]
+    ALARMS["CloudWatch alarms ×3<br/>errors · no invocations · DLQ depth"]
+    SNS["SNS topic<br/>→ email"]
+  end
+
+  SCHED -- "invoke" --> LAMBDA
+  LAMBDA -- "HTTPS GET" --> RTE
+  LAMBDA -- "JSON Lines" --> LAKE
+  LAMBDA -- "latest.json" --> SITE
+  USER -- "HTTPS" --> CF
+  CF -- "read via OAC" --> SITE
+  ATHENA --> GLUE
+  GLUE -.-> LAKE
+    SCHED -. "failed invoke" .-> DLQ
+  LAMBDA -. "on_failure, after 2 retries" .-> DLQ
+  LAMBDA -. "Errors · Invocations" .-> ALARMS
+  DLQ -. "messages visible > 0" .-> ALARMS
+  ALARMS -. "notify" .-> SNS
+```
 
 ## How it works
 
