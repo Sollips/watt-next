@@ -8,6 +8,26 @@ permissions:
   contents: read         # least privilege: the job can only READ the repo
 
 jobs:
+  tflint:
+    name: Lint (tflint)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: tflint (same image as local, pinned)
+        env:
+          GITHUB_TOKEN: ${{ github.token }}   # avoids GitHub API rate limits when downloading the AWS plugin
+        run: |
+          docker run --rm -v "$PWD:/data" -w /data -e GITHUB_TOKEN --entrypoint sh \
+            ghcr.io/terraform-linters/tflint:v0.65.0 \
+            -c "tflint --init --config /data/.tflint.hcl && tflint --recursive --config /data/.tflint.hcl --format compact"
+
+  checkov:
+    name: Security scan (checkov)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: checkov (same image as local, pinned)
+        run: docker run --rm -v "$PWD:/tf" -w /tf bridgecrew/checkov:3.4.3 --config-file /tf/.checkov.yaml -d /tf
   fmt:
     name: Format check
     runs-on: ubuntu-latest
@@ -20,7 +40,7 @@ jobs:
 
   plan:
     name: Plan (infra)
-    needs: [fmt, validate]                    # don't log into AWS if the code is broken
+    needs: [fmt, validate, tflint, checkov]                    # don't log into AWS if the code is broken
     if: github.event_name == 'pull_request'   # only PRs match the ci-plan trust policy
     runs-on: ubuntu-latest
     permissions:
@@ -63,7 +83,7 @@ jobs:
   
   apply:
     name: Apply (infra)
-    needs: [fmt, validate]
+    needs: [fmt, validate, tflint, checkov]
     if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment: production                   # the approval gate (works once the repo is public)
