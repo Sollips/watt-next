@@ -1,0 +1,34 @@
+# Every skip is a decision with its reason. Reviewed in PRs like any code.
+framework:
+  - terraform
+compact: true
+quiet: true
+skip-check:
+  # --- SKIP: out of proportion for a public open-data project ($2/month target) ---
+  - CKV_AWS_144  # S3 replication: data re-downloadable from RTE; would double storage
+  - CKV_AWS_18   # S3 access logs: CloudTrail covers API audit; a log bucket adds cost and noise
+  - CKV2_AWS_62  # S3 event notifications: no consumer needs them
+  - CKV_AWS_145  # S3 KMS: SSE-S3 enough for public data. DEFER for tfstate (roadmap: SSE-KMS CMK)
+  - CKV_AWS_68   # CloudFront WAF: static public page; $5+/month out of proportion
+  - CKV_AWS_86   # CloudFront access logs: not needed for a demo page
+  - CKV_AWS_374  # CloudFront geo restriction: public data, open to everyone
+  - CKV_AWS_310  # CloudFront origin failover: single-region demo, no SLA
+  - CKV_AWS_50   # Lambda X-Ray: alarms + DLQ already detect failures
+  - CKV_AWS_272  # Lambda code signing: single author, code deployed via reviewed CI
+  - CKV_AWS_338  # 1-year log retention: debug logs, not audit logs; 14 days is enough
+  - CKV_AWS_297  # Scheduler CMK: the schedule holds no sensitive data
+  - CKV2_AWS_61  # S3 lifecycle: the site bucket is overwritten, not versioned (tfstate now has one)
+  # --- DEFER: real, tracked on the roadmap ---
+  - CKV_AWS_274  # AdministratorAccess on ci-apply: SIMPLIFICATION, to scope to watt-next resources
+
+    # --- SKIP (round 2) ---
+  - CKV_AWS_116  # FALSE POSITIVE: DLQ via aws_lambda_function_event_invoke_config on_failure (+ Scheduler DLQ)
+  - CKV_AWS_117  # Lambda in VPC: would need a NAT gateway (~$35/month) to reach the ODRÉ API
+  - CKV_AWS_158  # Log group KMS: no personal data in logs
+  - CKV_AWS_173  # Lambda env var KMS: env vars are bucket names, not secrets
+  - CKV_AWS_26   # SNS encryption: alarm notices only; CloudWatch needs a CMK ($1/month) to publish
+  - CKV2_AWS_47  # WAF Log4j rules: no WAF (see CKV_AWS_68), no Java behind a static page
+  # --- DEFER: custom domain + ACM certificate (roadmap) ---
+  - CKV_AWS_174  # TLS 1.2 minimum: impossible with the default *.cloudfront.net certificate
+  - CKV2_AWS_42  # custom SSL certificate: same roadmap item
+  - CKV_AWS_115 # account concurrency limit is 10; quota increase needed
