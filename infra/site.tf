@@ -61,12 +61,13 @@ resource "aws_cloudfront_distribution" "site" {
   }
 
   default_cache_behavior {
-    target_origin_id       = local.site_origin_id # must match the origin's id
-    viewer_protocol_policy = "redirect-to-https"
-    allowed_methods        = ["GET", "HEAD"]
-    cached_methods         = ["GET", "HEAD"]
-    compress               = true
-    cache_policy_id        = data.aws_cloudfront_cache_policy.optimized.id
+    target_origin_id           = local.site_origin_id # must match the origin's id
+    viewer_protocol_policy     = "redirect-to-https"
+    allowed_methods            = ["GET", "HEAD"]
+    cached_methods             = ["GET", "HEAD"]
+    compress                   = true
+    cache_policy_id            = data.aws_cloudfront_cache_policy.optimized.id
+    response_headers_policy_id = data.aws_cloudfront_response_headers_policy.security.id
   }
 
   restrictions {
@@ -88,4 +89,8 @@ resource "aws_s3_object" "index" {
   source_hash   = filemd5("${path.module}/../site/index.html") # file changes → re-upload
   content_type  = "text/html; charset=utf-8"
   cache_control = "max-age=300" # future page edits reach visitors within 5 minutes
+}
+
+data "aws_cloudfront_response_headers_policy" "security" {
+  name = "Managed-SecurityHeadersPolicy" # AWS-managed and free: HSTS, X-Frame-Options, nosniff…
 }
