@@ -81,11 +81,27 @@ If anything fails: Scheduler and Lambda both retry, failed events land in an **S
 
 ## Security
 
-<!-- Part C -->
+- **No long-lived credentials.** Humans sign in through IAM Identity Center (SSO); CI assumes roles through GitHub OIDC. The account has no IAM users and no access keys.
+- **Least privilege, one role per job.** The ingest Lambda can only write to `raw/eco2mix/*` in the data lake and to `data/latest.json` on the site. The CI *plan* role is read-only, plus the state lock file.
+- **Private by default.** Every bucket comes from the `secure_bucket` module: public access blocked, encrypted, TLS-only, `prevent_destroy`. The site bucket is readable only by this CloudFront distribution (OAC + `AWS:SourceArn`), which adds security headers (HSTS, X-Frame-Options, nosniff).
+- **Confused-deputy protection** on service roles (`aws:SourceAccount` on the Scheduler's trust policy).
+- **Every change is reviewed.** Each pull request runs `fmt`, `validate`, `tflint`, `checkov` and a `terraform plan`. Applies run only from `main`, through a protected GitHub environment, and the AWS trust policy accepts no other path.
+- **Scanner findings are decisions, not noise.** checkov: 220 checks pass; every skipped check is listed in [`.checkov.yaml`](.checkov.yaml) with its reason.
+- **No secrets in code.** The alert email comes from a git-ignored file locally and from a GitHub secret in CI. The full Git history was scanned with gitleaks.
+
+**Known gaps, on the roadmap:** the CI *apply* role uses `AdministratorAccess` (to be scoped to watt-next resources) · state encrypted with SSE-S3 rather than a customer-managed KMS key · no custom domain yet, so TLS 1.2-minimum isn't enforced · Lambda concurrency limit pending an account quota increase.
 
 ## Cost
 
-<!-- Part C -->
+**About $0.05 per month** (measured on the AWS bill, November 2026). A $5 budget alarm (80% actual, 100% forecast) guards against surprises.
+
+| Service | Usage | Monthly cost |
+|---|---|---|
+| S3 | ~6,000 writes, a few MB stored | ~$0.05 |
+| Athena | a few queries over partitioned data, 100 MB cap per query | < $0.01 |
+| Lambda, EventBridge Scheduler, SQS, SNS, CloudWatch (3 alarms), CloudFront, Glue | within AWS's always-free allowances | $0 |
+
+**Cost-driven choices:** serverless instead of always-on compute · Athena pay-per-query instead of a database · partition projection instead of a crawler · no NAT gateway (~$35/month), so the Lambda runs outside a VPC · arm64 Lambda (~20% cheaper) · lifecycle rules expire temporary and old data.
 
 ## Repository layout
 
