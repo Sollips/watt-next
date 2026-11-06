@@ -66,7 +66,18 @@ If anything fails: Scheduler and Lambda both retry, failed events land in an **S
 
 ## Design decisions
 
-<!-- Part C -->
+| Decision | Why | Alternative considered |
+|---|---|---|
+| **Serverless ingestion** (Lambda + EventBridge Scheduler) | A 15-minute batch job runs ~3,000 times a month: almost free, nothing to patch or keep running | EC2 or a container: always-on cost for a job that runs a few seconds |
+| **Lambda on arm64** (Graviton) | Same code, ~20% cheaper per millisecond | x86_64 (the default) |
+| **Partition projection** on the Glue table | Partitions are computed from the date: no crawler to run or pay for, new days are queryable immediately | A Glue crawler on a schedule |
+| **S3 data lake + Athena** | Storage costs cents; Athena bills per query and nothing when idle; schema-on-read over raw JSON | A database (RDS, DynamoDB): billed every hour, even when nobody queries it |
+| **CloudFront + OAC** in front of a private bucket | The bucket stays private (only this distribution can read it, via `AWS:SourceArn`); HTTPS; content cached at the edge | S3 static website hosting: public bucket, HTTP only |
+| **GitHub OIDC** for CI | No long-lived secret to store, rotate or leak: each run gets credentials that expire within the hour, pinned to this repo and event; every session is visible in CloudTrail | AWS access keys stored as GitHub secrets |
+| **Native S3 state locking** (`use_lockfile`) | One resource and one permission set fewer; the current standard since Terraform 1.11, which deprecated DynamoDB locking | A DynamoDB lock table |
+| **Own `secure_bucket` module** | One secure baseline for 4 buckets: encryption, no public access, TLS only, `prevent_destroy` | A registry module (`terraform-aws-modules/s3-bucket`): powerful, but much bigger than needed here |
+| **Separate `bootstrap/` and `infra/`** | The state bucket and the CI roles can't be managed by the state and the CI they enable; a human applies them once | One configuration for everything |
+| **Paris region** (eu-west-3) | French data, French users, data stays in France | us-east-1 (cheapest, where the NOAA weather data lives; planned for v0.5: *compute moves to the data*) |
 
 ## Security
 
