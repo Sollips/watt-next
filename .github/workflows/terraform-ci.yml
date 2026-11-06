@@ -8,10 +8,10 @@ permissions:
   contents: read         # least privilege: the job can only READ the repo
 
 jobs:
-    tflint:
-     name: Lint (tflint)
-     runs-on: ubuntu-latest
-     steps:
+  tflint:
+    name: Lint (tflint)
+    runs-on: ubuntu-latest
+    steps:
       - uses: actions/checkout@v6
       - name: tflint (same image as local, pinned)
         env:
